@@ -1,0 +1,67 @@
+EmailSendRequest(
+    to_recipients=["test@example.com"],
+    subject="테스트 이메일",
+    body="안녕하세요, 이것은 테스트 이메일입니다."
+)
+
+EmailSendRequest(
+    to_recipients=["recipient1@example.com", "recipient2@example.com"],
+    subject="중요 공지",
+    body="이것은 매우 중요한 공지입니다. <b>반드시 읽어주세요.</b>",
+    cc_recipients=["cc_user@example.com"],
+    bcc_recipients=["bcc_user@example.com", "another_bcc@example.com"],
+    is_html=True
+)
+
+EmailSendRequest(
+    to_recipients="single@example.com",
+    subject="단일 수신자 테스트",
+    body="단일 수신자 테스트 이메일입니다."
+)
+
+EmailSendRequest(
+    to_recipients=[],  # 최소 1개의 수신자가 필요
+    subject="",        # 제목은 비어 있을 수 없음
+    body="본문입니다."
+)
+
+EmailSendRequest(
+    to_recipients=["not-an-email"], # 유효하지 않은 이메일 형식
+    subject="잘못된 형식 테스트",
+    body="본문입니다."
+)
+
+
+메세지 예시
+
+{
+  "channel": "C0925TFNBQA",
+  "header": "Important Update!",
+  "content": "Hello, *world*!",
+  "messageType": "MARKDOWN_TRUE",
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "Important Update!",
+        "emoji": true
+      }
+    },
+    {
+      "text": {
+        "text": "This is a *section* block.",
+        "type": "mrkdwn"
+      },
+      "type": "section"
+    },
+    {
+      "type": "divider"
+    }
+  ],
+  "thread_ts": "1678886400.000000",
+  "reply_broadcast": false,
+  "username": "Notification Bot",
+  "icon_url": "https://example.com/bot_icon.png",
+  "icon_emoji": ":rocket:"
+}
