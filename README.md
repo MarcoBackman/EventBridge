@@ -138,4 +138,4 @@ Swagger URL: http://localhost:8002/docs#/
 - 클라이언트 & 웹 공용 DB
 
 ## 앞으로 할 일
-- PROD가 현재 unicorn 으로만 동작중, 트래픽이 많아지면 nginx로 전환 고려 해 볼 것
+- PROD가 현재 uvicorn 으로만 동작중, 트래픽이 많아지면 nginx로 전환 고려 해 볼 것
