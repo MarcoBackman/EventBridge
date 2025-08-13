@@ -60,15 +60,8 @@ class SlackPostRequest(BaseModel):
         examples=["Notification Bot"]
     )
 
-    icon_url: Optional[HttpUrl] = Field(
-        None,
-        description="Optional URL to an image to use as the profile photo alongside the message.",
-        examples=["https://example.com/bot_icon.png"]
-    )
-
-    icon_emoji: Optional[str] = Field(
-        None,
-        description="Optional emoji string (e.g., ':robot_face:') to use as the profile photo alongside the message. "
-                    "Cannot be used with icon_url.",
-        examples=[":rocket:", ":white_check_mark:"]
+    message_type: SlackMsgType = Field(
+        SlackMsgType.INFO,
+        description="The type of message to send. Defaults to TEXT, which uses mrkdwn formatting.",
+        examples=[SlackMsgType.INFO, SlackMsgType.WARNING, SlackMsgType.CRITICAL]
     )

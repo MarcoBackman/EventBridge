@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional, Union
 from app.core.config import settings
+from app.enums.slack_message_type import SlackMsgType
 from slack_sdk import WebClient
 from app.dto.slack_request_dto import SlackPostRequest
 import logging
@@ -7,6 +8,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 class SlackService:
+
+    EMOJI_MAP = {
+        SlackMsgType.CRITICAL: ":rotating_light:",
+        SlackMsgType.INFO: ":information_source:",
+        SlackMsgType.WARNING: ":warning:",
+    }
+
+
     def __init__(self):
         self.slack_client = WebClient(token=settings.SLACK_BOT_TOKEN)
 
@@ -47,79 +56,92 @@ class SlackService:
             # Return a consistent error format
             return {"ok": False, "error": str(e), "detail": "An exception occurred in the service"}
         
-    async def post_formatted_message(self, slack_data: SlackPostRequest) -> Dict[str, Any]:
-        try:
-            payload: Dict[str, Any] = {
-                "channel": slack_data.channel,
-                "link_names": True, # Common practice to automatically link @mentions and #channels
+    @staticmethod
+    def form_header_message(header: str,  emoji: Optional[str] = None) -> Dict[str, Any]:
+        if not header:
+            return {}
+        
+        if emoji:
+            formatted_text = f"{emoji} {header}"
+
+        return {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*{formatted_text}*",
             }
+        }
 
-            # Handle Threading
-            if slack_data.thread_ts:
-                payload["thread_ts"] = slack_data.thread_ts
-                payload["reply_broadcast"] = slack_data.reply_broadcast
+    @staticmethod
+    def form_main_content_message(content: str) -> Dict[str, Any]:
+        if not content:
+            return {}
+        return {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": content,
+            }
+        }
 
-            # Handle Custom Sender Info
-            if slack_data.username:
-                payload["username"] = slack_data.username
-            if slack_data.icon_url:
-                payload["icon_url"] = str(slack_data.icon_url) # Pydantic HttpUrl needs to be stringified
-            elif slack_data.icon_emoji:
-                payload["icon_emoji"] = slack_data.icon_emoji
 
-            # --- Message Content Logic (Blocks vs. Text) ---
-            if slack_data.blocks:
-                payload["blocks"] = slack_data.blocks
-                payload["text"] = slack_data.content
-            else:
-                generated_blocks: List[Dict[str, Any]] = []
-                if slack_data.header:
-                    generated_blocks.append(
-                        {
-                            "type": "header",
-                            "text": {
-                                "type": "plain_text",
-                                "text": slack_data.header,
-                                "emoji": True
-                            }
-                        }
-                    )
-                
-                # Always add the main content, either in a section block or as simple text
-                if generated_blocks:
-                    # If there are already blocks (from header), add content as a section block
-                    generated_blocks.append(
-                        {
-                            "type": "section",
-                            "text": {
-                                "type": "mrkdwn", # Assume mrkdwn is desired in blocks for content
-                                "text": slack_data.content
-                            }
-                        }
-                    )
-                    payload["blocks"] = generated_blocks
-                    payload["text"] = slack_data.content # Fallback text
+    # This should set channel, thread_ts, reply_broadcast, username, icon_url, icon_emoji
+    @staticmethod
+    def set_message_parameters(
+        channel: str,
+        thread_ts: Optional[str] = None,
+        reply_broadcast: Optional[bool] = False,
+        username: Optional[str] = None,
+        icon_url: Optional[str] = None,
+        icon_emoji: Optional[str] = None
+    ) -> Dict[str, Any]:
+        params: Dict[str, Any] = {
+            "channel": channel,
+            "link_names": True,
+        }
+        if thread_ts:
+            params["thread_ts"] = thread_ts
+            params["reply_broadcast"] = reply_broadcast
+        if username:
+            params["username"] = username
+        if icon_url:
+            params["icon_url"] = icon_url
+        elif icon_emoji:
+            params["icon_emoji"] = icon_emoji
+        return params
+
+    def post_formatted_message(self, slack_data: SlackPostRequest) -> Dict[str, Any]:
+            try:
+                # This part is unchanged
+                optional_params = {
+                    "thread_ts": slack_data.thread_ts,
+                    "reply_broadcast": slack_data.reply_broadcast,
+                    "username": slack_data.username,
+                }
+                filtered_params = {k: v for k, v in optional_params.items() if v is not None}
+                payload: Dict[str, Any] = self.set_message_parameters(
+                    channel=slack_data.channel, **filtered_params
+                )
+
+                if slack_data.blocks:
+                    payload["blocks"] = slack_data.blocks
+                    payload["text"] = slack_data.content or "Message with custom blocks."
                 else:
-                    # No blocks and no header, send as simple text
+                    emoji_icon = self.EMOJI_MAP.get(slack_data.message_type)
+                    generated_blocks = []
+                    
+                    if slack_data.header:
+                        generated_blocks.append(self.form_header_message(slack_data.header, emoji_icon))
+                    generated_blocks.append(self.form_main_content_message(slack_data.content))
+                    
+                    payload["blocks"] = generated_blocks
                     payload["text"] = slack_data.content
-                    # Apply mrkdwn setting directly to the top-level 'text' field
-                    # Assuming SlackMsgType maps to a boolean
-                    # payload["mrkdwn"] = True if slack_data.messageType == SlackMsgType.MARKDOWN_TRUE else False
 
-            # Send the message
-            result = self.slack_client.chat_postMessage(**payload)
-
-            if result.get("ok"):
-                logger.info(f"Formatted message successfully sent to channel {slack_data.channel}.")
-            else:
-                error_msg = result.get("error", "Unknown error from Slack API")
-                logger.error(f"Failed to send formatted message to channel {slack_data.channel}: {error_msg}")
-            
-            return result
-
-        except Exception as e:
-            logger.error(f"An unexpected error occurred while sending formatted Slack message to {slack_data.channel}: {e}", exc_info=True)
-            return {"ok": False, "error": str(e), "detail": "An exception occurred in the service"}
+                result = self.slack_client.chat_postMessage(**payload)
+                return result
+            except Exception as e:
+                logger.error(f"An unexpected error occurred: {e}", exc_info=True)
+                return {"ok": False, "error": str(e)}
 
 
         
