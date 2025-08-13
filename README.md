@@ -128,8 +128,12 @@ Swagger URL: http://localhost:8002/docs#/
 - 라이선스 기능
 - 슬랙봇 연결 및 채팅 전송
 
-## 개발 보수가 필요한 기능
-- 슬랙봇 채팅 형식 정규화 및 이쁜 레이아웃 (아이콘, 레벨 별 알림 메시지 변화 등)
+
+### 슬랙 봇 예시
+
+![slackbot api request example](./img/slack_bot_api.png)
+![slackbot api request example](./img/slack_channel.png)
+
 
 ## 개발이 필요 한 기능
 - AWS SES 연계
